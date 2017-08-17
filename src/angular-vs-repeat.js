@@ -162,7 +162,8 @@
                         'vsOffsetAfter': 'offsetAfter',
                         'vsScrolledToEndOffset': 'scrolledToEndOffset',
                         'vsScrolledToBeginningOffset': 'scrolledToBeginningOffset',
-                        'vsExcess': 'excess'
+                        'vsExcess': 'excess',
+                        'vsColumns': 'columns'
                     };
 
                 if (ngRepeatChild.attr('ng-repeat')) {
@@ -243,6 +244,12 @@
                         $scope.offsetAfter = 0;
                         $scope.excess = 2;
 
+                        var columns = (+$attrs.vsColumns) || 1;
+
+                      $attrs.$observe('vsColumns', function (val) {
+                        columns = (+val) || 1;
+                      });
+
                         if ($$horizontal) {
                             $beforeContent.css('height', '100%');
                             $afterContent.css('height', '100%');
@@ -320,7 +327,9 @@
 
                                                 gotSomething = true;
                                                 if (children[i][offsetSize]) {
-                                                    $scope.elementSize += children[i][offsetSize];
+                                                    $scope.elementSize += children[i].getBoundingClientRect().height;
+                                                  var styles = window.getComputedStyle(children[i]);
+                                                  $scope.elementSize += parseFloat(styles['marginTop']) + parseFloat(styles['marginBottom']);
                                                 }
 
                                                 if (isNgRepeatStart) {
@@ -513,17 +522,20 @@
                                 );
                             }
                             else {
+
+                                var es = ($scrollPosition - $scope.offsetBefore - scrollOffset) / $scope.elementSize;
+
                                 __startIndex = Math.max(
-                                    Math.floor(
-                                        ($scrollPosition - $scope.offsetBefore - scrollOffset) / $scope.elementSize
-                                    ) - $scope.excess / 2,
+                                    Math.floor(es) * columns - $scope.excess * columns / 2,
                                     0
                                 );
 
+                                var ee = $clientSize / $scope.elementSize;
+
                                 __endIndex = Math.min(
                                     __startIndex + Math.ceil(
-                                        $clientSize / $scope.elementSize
-                                    ) + $scope.excess,
+                                        Math.floor(ee) * columns
+                                    ) + $scope.excess * columns,
                                     originalLength
                                 );
                             }
@@ -548,11 +560,11 @@
 
                             if (!digestRequired) {
                                 if ($$options.hunked) {
-                                    if (Math.abs($scope.startIndex - _prevStartIndex) >= $scope.excess / 2 ||
+                                    if (Math.abs($scope.startIndex - _prevStartIndex) >= $scope.excess * columns / 2 ||
                                         ($scope.startIndex === 0 && _prevStartIndex !== 0)) {
                                         digestRequired = true;
                                     }
-                                    else if (Math.abs($scope.endIndex - _prevEndIndex) >= $scope.excess / 2 ||
+                                    else if (Math.abs($scope.endIndex - _prevEndIndex) >= $scope.excess * columns / 2 ||
                                         ($scope.endIndex === originalLength && _prevEndIndex !== originalLength)) {
                                         digestRequired = true;
                                     }
@@ -585,14 +597,10 @@
                                 _prevStartIndex = $scope.startIndex;
                                 _prevEndIndex = $scope.endIndex;
 
-                                var offsetCalculationString = sizesPropertyExists ?
-                                    '(sizesCumulative[$index + startIndex] + offsetBefore)' :
-                                    '(($index + startIndex) * elementSize + offsetBefore)';
+                                var o1 = __startIndex * $scope.elementSize / columns;
+                                var o2 = Math.ceil((__startIndex + $scope[collectionName].length) / columns) * $scope.elementSize;
 
-                                var parsed = $parse(offsetCalculationString);
-                                var o1 = parsed($scope, {$index: 0});
-                                var o2 = parsed($scope, {$index: $scope[collectionName].length});
-                                var total = $scope.totalSize;
+                                var total = Math.ceil(originalLength / columns) * $scope.elementSize;
 
                                 $beforeContent.css(getLayoutProp(), o1 + 'px');
                                 $afterContent.css(getLayoutProp(), (total - o2) + 'px');
